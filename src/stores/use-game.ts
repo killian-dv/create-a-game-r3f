@@ -4,6 +4,7 @@ import { subscribeWithSelector } from "zustand/middleware";
 interface GameStore {
   phase: "ready" | "playing" | "ended";
   blocksCount: number;
+  blocksSeed: number;
   startTime: number;
   endTime: number;
   start: () => void;
@@ -14,7 +15,8 @@ interface GameStore {
 export const useGame = create<GameStore>()(
   subscribeWithSelector((set, get) => ({
     phase: "ready",
-    blocksCount: 3,
+    blocksCount: 10,
+    blocksSeed: Math.random(),
     startTime: 0,
     endTime: 0,
     start: () => {
@@ -25,9 +27,12 @@ export const useGame = create<GameStore>()(
     },
     restart: () => {
       if (get().phase === "ended" || get().phase === "playing") {
-        set({ phase: "ready" });
-        set({ startTime: 0 });
-        set({ endTime: 0 });
+        set({
+          phase: "ready",
+          startTime: 0,
+          endTime: 0,
+          blocksSeed: Math.random(),
+        });
       }
     },
     end: () => {
