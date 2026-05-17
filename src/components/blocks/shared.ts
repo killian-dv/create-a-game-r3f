@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import {
   BoxGeometry,
   CanvasTexture,
@@ -5,6 +6,10 @@ import {
   RepeatWrapping,
   SRGBColorSpace,
 } from "three";
+
+export type BlockGroupProps = Omit<ComponentProps<"group">, "position"> & {
+  position?: [number, number, number];
+};
 
 export const boxGeometry = new BoxGeometry(1, 1, 1);
 

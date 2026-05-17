@@ -1,12 +1,13 @@
-import { useMemo, type ComponentProps, type ComponentType } from "react";
+import { useMemo, type ComponentType } from "react";
 import { BlockAxe } from "./blocks/block-axe";
 import { BlockEnd } from "./blocks/block-end";
 import { BlockLimbo } from "./blocks/block-limbo";
 import { BlockSpinner } from "./blocks/block-spinner";
 import { BlockStart } from "./blocks/block-start";
 import { Bounds } from "./blocks/bounds";
+import type { BlockGroupProps } from "./blocks/shared";
 
-type BlockType = ComponentType<ComponentProps<"group">>;
+type BlockType = ComponentType<BlockGroupProps>;
 
 const BLOCK_TYPES = [BlockAxe, BlockLimbo, BlockSpinner];
 

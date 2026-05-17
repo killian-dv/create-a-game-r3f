@@ -1,9 +1,18 @@
 import { useFrame } from "@react-three/fiber";
 import { RigidBody, type RapierRigidBody } from "@react-three/rapier";
-import { useRef, useState, type ComponentProps } from "react";
-import { boxGeometry, floor2Material, obstacleMaterial } from "./shared";
+import { useRef, useState } from "react";
+import {
+  boxGeometry,
+  floor2Material,
+  obstacleMaterial,
+  type BlockGroupProps,
+} from "./shared";
 
-export const BlockAxe = ({ ...props }: ComponentProps<"group">) => {
+export const BlockAxe = ({
+  position = [0, 0, 0],
+  ...props
+}: BlockGroupProps) => {
+  const [baseX, baseY, baseZ] = position;
   const obstacle = useRef<RapierRigidBody>(null);
   const [timeOffset] = useState(() => Math.random() * 2 * Math.PI);
 
@@ -12,15 +21,15 @@ export const BlockAxe = ({ ...props }: ComponentProps<"group">) => {
     const x = Math.sin(time + timeOffset) * 1.25;
     if (obstacle.current) {
       obstacle.current.setNextKinematicTranslation({
-        x: (props.position?.[0] ?? 0) + x,
-        y: (props.position?.[1] ?? 0) + 0.75,
-        z: props.position?.[2] ?? 0,
+        x: baseX + x,
+        y: baseY + 0.75,
+        z: baseZ,
       });
     }
   });
 
   return (
-    <group {...props}>
+    <group position={position} {...props}>
       <mesh
         position-y={-0.1}
         receiveShadow
