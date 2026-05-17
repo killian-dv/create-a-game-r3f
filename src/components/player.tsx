@@ -5,7 +5,7 @@ import {
   useRapier,
   type RapierRigidBody,
 } from "@react-three/rapier";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Vector3 } from "three";
 
 export const Player = () => {
@@ -15,34 +15,38 @@ export const Player = () => {
 
   const { rapier, world } = useRapier();
 
-  console.log("world", world);
+  const [smoothedCameraPosition] = useState(() => new Vector3(10, 10, 10));
+  const [smoothedCameraTarget] = useState(() => new Vector3());
+
+  const jump = useCallback(() => {
+    if (!ball.current) return;
+
+    const bodyPosition = ball.current.translation();
+    const rayOrigin = {
+      x: bodyPosition.x,
+      y: bodyPosition.y - 0.31,
+      z: bodyPosition.z,
+    };
+    const ray = new rapier.Ray(rayOrigin, { x: 0, y: -1, z: 0 });
+    const hit = world.castRay(ray, 10, true);
+
+    if (hit && hit.timeOfImpact < 0.15) {
+      ball.current.applyImpulse({ x: 0, y: 0.5, z: 0 }, true);
+    }
+  }, [rapier, world]);
 
   useEffect(() => {
-    const jump = () => {
-      if (!ball.current) return;
-      const origin = ball.current.translation();
-      if (!origin) return;
-      origin.y -= 0.31;
-      const direction = new Vector3(0, -1, 0);
-      const ray = new rapier.Ray(origin, direction);
-      const hit = world.castRay(ray, 10, true);
-      if (hit?.timeOfImpact && hit.timeOfImpact < 0.15) {
-        ball.current.applyImpulse(new Vector3(0, 0.5, 0), true);
-      }
-    };
-
     const unsubscribe = subscribeKeys(
       (state) => state.jump,
       (value) => {
-        if (value) {
-          jump();
-        }
+        if (value) jump();
       },
     );
-    return () => unsubscribe();
-  }, [subscribeKeys, rapier, world]);
+    return unsubscribe;
+  }, [subscribeKeys, jump]);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
+    // Controls
     const { forward, backward, left, right } = getKeys();
     const impulse = new Vector3(0, 0, 0);
     const torque = new Vector3(0, 0, 0);
@@ -69,6 +73,24 @@ export const Player = () => {
       ball.current.applyImpulse(impulse, true);
       ball.current.applyTorqueImpulse(torque, true);
     }
+
+    // camera
+    const ballPosition = ball.current?.translation();
+    if (!ballPosition) return;
+    const cameraPosition = new Vector3();
+    cameraPosition.copy(ballPosition);
+    cameraPosition.y += 0.65;
+    cameraPosition.z += 2.25;
+
+    const cameraTarget = new Vector3();
+    cameraTarget.copy(ballPosition);
+    cameraTarget.y += 0.25;
+
+    smoothedCameraPosition.lerp(cameraPosition, delta * 5);
+    smoothedCameraTarget.lerp(cameraTarget, delta * 5);
+
+    state.camera.position.copy(smoothedCameraPosition);
+    state.camera.lookAt(smoothedCameraTarget);
   });
   return (
     <RigidBody
