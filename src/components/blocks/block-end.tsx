@@ -2,7 +2,13 @@ import { useGLTF } from "@react-three/drei";
 import { RigidBody } from "@react-three/rapier";
 import type { ComponentProps } from "react";
 import { Mesh } from "three";
-import { boxGeometry, floor1Material } from "./shared";
+import {
+  boxGeometry,
+  FLOOR_BAND_DEPTH,
+  floorBandZ,
+  floorLineBandMaterial,
+  floorNeutralMaterial,
+} from "./shared";
 
 export const BlockEnd = ({ ...props }: ComponentProps<"group">) => {
   const hamburger = useGLTF("./hamburger.glb");
@@ -14,10 +20,18 @@ export const BlockEnd = ({ ...props }: ComponentProps<"group">) => {
   return (
     <group {...props}>
       <mesh
+        position-y={-0.1}
         receiveShadow
         geometry={boxGeometry}
-        material={floor1Material}
+        material={floorNeutralMaterial}
         scale={[4, 0.2, 4]}
+      />
+      <mesh
+        receiveShadow
+        geometry={boxGeometry}
+        material={floorLineBandMaterial}
+        position={[0, -0.099, floorBandZ.fromCourse]}
+        scale={[4, 0.201, FLOOR_BAND_DEPTH]}
       />
       <RigidBody
         type="fixed"

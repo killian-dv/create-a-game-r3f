@@ -1,5 +1,11 @@
 import type { ComponentProps } from "react";
-import { boxGeometry, floor1Material } from "./shared";
+import {
+  boxGeometry,
+  floorBandZ,
+  floorLineBandMaterial,
+  floorNeutralMaterial,
+  FLOOR_BAND_DEPTH,
+} from "./shared";
 
 export const BlockStart = ({ ...props }: ComponentProps<"group">) => {
   return (
@@ -8,8 +14,15 @@ export const BlockStart = ({ ...props }: ComponentProps<"group">) => {
         position-y={-0.1}
         receiveShadow
         geometry={boxGeometry}
-        material={floor1Material}
+        material={floorNeutralMaterial}
         scale={[4, 0.2, 4]}
+      />
+      <mesh
+        receiveShadow
+        geometry={boxGeometry}
+        material={floorLineBandMaterial}
+        position={[0, -0.099, floorBandZ.towardCourse]}
+        scale={[4, 0.201, FLOOR_BAND_DEPTH]}
       />
     </group>
   );
