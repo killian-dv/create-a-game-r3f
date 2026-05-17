@@ -1,5 +1,6 @@
 import { KeyboardControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
+import { Interface } from "./components/interface";
 import { Experience } from "./experience";
 
 export const App = () => {
@@ -24,6 +25,7 @@ export const App = () => {
       >
         <Experience />
       </Canvas>
+      <Interface />
     </KeyboardControls>
   );
 };
