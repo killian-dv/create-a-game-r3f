@@ -1,4 +1,4 @@
-import { useGLTF } from "@react-three/drei";
+import { Text, useGLTF } from "@react-three/drei";
 import { RigidBody } from "@react-three/rapier";
 import type { ComponentProps } from "react";
 import { Mesh } from "three";
@@ -19,6 +19,14 @@ export const BlockEnd = ({ ...props }: ComponentProps<"group">) => {
   });
   return (
     <group {...props}>
+      <Text
+        font="./bebas-neue-v9-latin-regular.woff"
+        scale={1}
+        position={[0, 2.25, 2]}
+      >
+        FINISH
+        <meshBasicMaterial toneMapped={false} />
+      </Text>
       <mesh
         position-y={-0.1}
         receiveShadow
