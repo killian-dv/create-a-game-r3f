@@ -9,6 +9,7 @@ export function Experience() {
   const blocksSeed = useGame((state) => state.blocksSeed);
   return (
     <>
+      <color attach="background" args={["#bdedfc"]} />
       <Physics>
         <Lights />
         <Level count={blocksCount} seed={blocksSeed} />
