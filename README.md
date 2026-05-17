@@ -1,107 +1,133 @@
-# Physics with R3F — Three.js Journey
+# Create a Game with R3F — Three.js Journey
 
-Quick recap of what I learned in the **Physics** lesson from [Three.js Journey](https://threejsjourney.com/) by Bruno Simon, implemented with **React Three Fiber** and **Rapier** via [`@react-three/rapier`](https://github.com/pmndrs/react-three-rapier).
+Quick recap of what I learned in the **Create a Game** lesson from [Three.js Journey](https://threejsjourney.com/) by Bruno Simon, implemented with **React Three Fiber**, **Rapier** (`@react-three/rapier`), **Zustand**, and **Drei**.
 
 ## What this project covers
 
-This project is a small physics playground: falling objects, user interaction, kinematic movers, custom colliders on a loaded model, invisible walls, and many instanced bodies for performance.
+This project is a small **Marble Race** game: roll a physics-driven ball through a procedurally generated course, dodge moving obstacles, reach the finish, and beat your time.
 
-- **`@react-three/rapier`** and the **`<Physics>`** provider to run the simulation.
-- **`RigidBody`** for dynamic, fixed, and kinematic objects.
-- **Automatic vs manual colliders** (`colliders="ball"`, `colliders={false}` + `CuboidCollider` / `CylinderCollider`).
-- **Forces and impulses** (`applyImpulse`, `applyTorqueImpulse`) triggered from React events.
-- **Kinematic bodies** moved each frame with `setNextKinematicTranslation` / `setNextKinematicRotation`.
-- **Collision callbacks** (`onCollisionEnter`) and simple audio feedback.
-- **`useGLTF`** with a custom collider on a complex mesh.
-- **`InstancedRigidBodies`** to simulate many cubes efficiently.
-- **`r3f-perf`** to monitor frame cost while stress-testing instances.
+- **Game loop** with phases (`ready` → `playing` → `ended`) managed outside the 3D scene.
+- **Keyboard controls** mapped once and shared between the player and the HTML UI.
+- **Player movement** via impulses and torque, scaled by `delta` for frame-rate independence.
+- **Ground detection** with a Rapier raycast before allowing a jump.
+- **Follow camera** smoothed with `lerp` each frame.
+- **Procedural level** built from reusable block components and a seeded random picker.
+- **Kinematic obstacles** animated in `useFrame` (translation and rotation).
+- **Win / lose conditions** tied to world position and a death zone collider.
+- **HTML overlay** synced to the render loop for a live timer and control hints.
 
 ## What I built
 
 - A full-screen **R3F `Canvas`** with shadows and a perspective camera.
-- A **`<Physics debug>`** world containing:
-  - An **orange sphere** with an auto-generated ball collider (`colliders="ball"`).
-  - A **purple cube** with a manual cuboid collider; **click** to jump (impulse + random torque).
-  - A **green floor** (`type="fixed"`) that does not move.
-  - A **red twister** (`type="kinematicPosition"`, `friction={0}`) that orbits and spins via `useFrame`.
-  - A **hamburger GLTF** with a **cylinder collider** instead of mesh-based collision.
-  - **Invisible walls** (fixed `RigidBody` + cuboid colliders only, no visible mesh).
-  - **100 instanced cubes** spawned above the scene via `InstancedRigidBodies`.
-- **Collision sound** on the interactive cube (`hit.mp3`, random volume).
-- **`Perf`** overlay to watch performance with many rigid bodies.
+- **`KeyboardControls`** (WASD / arrows + Space) wrapping both the scene and the UI.
+- A **`<Physics>`** world containing:
+  - A **player ball** (`RigidBody`, `colliders="ball"`) rolled with impulses and torque.
+  - A **`<Level>`** that places a start block, random obstacle blocks, an end block, and arena bounds.
+  - Three obstacle types — **Axe** (side-to-side), **Limbo** (up and down), **Spinner** (rotating bar).
+  - **Invisible floor collider** under the course (fall through → restart).
+  - **Side and back walls** to keep the ball in the lane.
+  - A **finish platform** with a **hamburger GLTF** (`colliders="hull"`).
+- **Directional light** that follows the camera so shadows stay consistent as you move.
+- **Zustand store** for phase, timer, level length, and random seed.
+- **React HTML interface** — timer, restart button, and on-screen key indicators.
 
 ## What I learned
 
-### 1) Why physics in Three.js
+### 1) From physics demo to actual game
 
-- Realistic motion (gravity, collisions, stacking, bouncing) is hard to fake by hand.
-- A **physics engine** integrates forces over time and resolves contacts between shapes.
-- In R3F, **Rapier** (via `@react-three/rapier`) wraps the simulation in React components so bodies stay in sync with the render loop.
+- Physics alone is not a game; you need **rules**, **state**, and **feedback** (start, win, lose, restart).
+- Split responsibilities: **3D scene** (meshes, bodies, `useFrame`) vs **game logic** (phases, timer, level config) vs **UI** (DOM overlay).
+- A global store (**Zustand**) keeps the 3D components and the HTML UI in sync without prop drilling.
 
-### 2) The Physics provider
+### 2) Game phases and timing
 
-- Wrap interactive content in **`<Physics>`** (optionally `debug` to visualize colliders).
-- Rapier uses a **fixed timestep**; the library steps the world and updates `RigidBody` transforms for you.
-- Enable **`shadows`** on the Canvas so `castShadow` / `receiveShadow` on meshes look correct.
+| Phase | What happens |
+|-------|----------------|
+| **`ready`** | Ball at spawn; timer at 0; waiting for first input. |
+| **`playing`** | Timer runs from `startTime`; win/lose checks active. |
+| **`ended`** | Timer frozen at `endTime`; restart available. |
 
-### 3) RigidBody types
+- **`subscribeWithSelector`** lets components react to specific state slices (e.g. reset the ball when `phase` returns to `ready`).
+- Store **timestamps** (`Date.now()`) instead of accumulating `delta` in the store — simpler and accurate enough for a display timer.
+- **`addEffect`** from R3F runs a callback on every frame **outside** the Canvas — ideal to refresh the DOM timer in sync with the game loop.
 
-| Type | Role in this scene |
-|------|-------------------|
-| **Dynamic** (default) | Sphere, cube, hamburger, instanced cubes — affected by gravity and collisions. |
-| **`fixed`** | Floor and walls — infinite mass, never moves. |
-| **`kinematicPosition`** | Red twister — position/rotation driven by code each frame, still pushes dynamic objects. |
+### 3) Keyboard controls across React trees
 
-Kinematic bodies are useful for moving platforms, doors, or scripted obstacles without fighting the solver.
+- **`KeyboardControls`** from Drei defines named actions (`forward`, `backward`, `left`, `right`, `jump`) and key bindings in one place.
+- Inside the Canvas: **`useKeyboardControls()`** returns `getKeys()` and `subscribeKeys()` for per-frame movement and one-shot actions (jump).
+- Outside the Canvas: **`useKeyboardControls((state) => state.forward)`** drives the HTML key highlights.
+- **`subscribeKeys`** can watch a **derived** selector (e.g. any movement key) to call `start()` on first input — a natural “press any key to begin” flow.
 
-### 4) Colliders
+### 4) Player body and movement
 
-- **`colliders="ball"`** (and similar shortcuts) auto-fit a primitive collider to the child mesh.
-- **`colliders={false}`** disables auto colliders so you can place precise shapes:
-  - **`CuboidCollider`** — boxes (half-extents in `args`).
-  - **`CylinderCollider`** — capsules/cylinders (useful for burger-like shapes).
-- Colliders can exist **without a visible mesh** (the arena walls).
-- **`mass`** on a collider overrides default mass distribution when needed.
+- The ball is a **dynamic** `RigidBody` with `canSleep={false}` so it never freezes mid-run.
+- Movement uses **`applyImpulse`** and **`applyTorqueImpulse`** each frame, multiplied by **`delta`** so speed feels the same at 30 or 144 FPS.
+- **`linearDamping`** / **`angularDamping`** add arcade-style control without disabling physics entirely.
+- **`restitution`** and **`friction`** tune how the ball bounces and grips surfaces.
 
-### 5) Forces, impulses, and interaction
+### 5) Jumping with a raycast
 
-- **`applyImpulse({ x, y, z }, wakeUp)`** gives an instant change in linear velocity (good for jumps).
-- **`applyTorqueImpulse`** spins the body; combined with random values it feels unpredictable.
-- **`onClick`** on a mesh inside a `RigidBody` is a simple way to tie UI input to physics.
-- Keep a **`ref`** to `RapierRigidBody` to call these methods from event handlers or `useFrame`.
+- A jump should only fire when the ball is **on the ground**, not in mid-air.
+- Cast a **`Ray`** downward from just below the ball with `world.castRay()`.
+- If `hit.timeOfImpact` is below a small threshold, apply an upward **impulse**.
+- This pattern is more reliable than counting contacts or using collision events for platformers.
 
-### 6) Kinematic animation in `useFrame`
+### 6) Camera follow
 
-- For `kinematicPosition`, set the **next** pose before the physics step:
-  - **`setNextKinematicTranslation({ x, y, z })`**
-  - **`setNextKinematicRotation(quaternion)`** (convert from `Euler` with `Quaternion.setFromEuler`).
-- Animate with time (`state.clock.getElapsedTime()`) for circular paths and continuous rotation.
-- **`friction={0}`** on the twister reduces sticking when objects slide across it.
+- Read the ball position each frame with **`translation()`** on the rigid body ref.
+- Offset the desired camera position (above and behind the ball) and **`lerp`** the real camera toward it for smooth motion.
+- **`lookAt`** a separate target slightly above the ball so the horizon stays readable.
+- Reuse **`Vector3`** instances in `useState` to avoid allocating every frame.
 
-### 7) Collisions and feedback
+### 7) Win, lose, and reset
 
-- **`onCollisionEnter`** fires when contact starts — useful for sounds, particles, or game logic.
-- Reuse one **`Audio`** element, reset `currentTime`, vary **`volume`** for variety.
-- Physics events are a bridge between the simulation and gameplay feel.
+- **Win**: compare ball `z` to the end block entrance (computed from `blocksCount` and floor size).
+- **Lose**: if `y` falls below a threshold (fell off the course), call **`restart()`**.
+- **Restart** resets phase and timer, picks a **new `blocksSeed`**, and respawns the ball when phase returns to `ready`.
+- **`setTranslation`**, **`setLinvel`**, and **`setAngvel`** reset the physics state cleanly.
 
-### 8) Models and complex shapes
+### 8) Procedural level design
 
-- **`useGLTF`** loads `hamburger.glb`; the visual is a `<primitive object={scene} />`.
-- Mesh-accurate collision is expensive; a **simple collider** (cylinder) approximates the model well enough.
-- Scale the model in JSX; tune collider `args` to match the scaled bounds.
+- Levels are **arrays of block components** placed at fixed `z` intervals (`-(index + 1) * FLOOR_SIZE`).
+- A **seeded pseudo-random** function picks obstacle types deterministically from `blocksSeed` — same seed → same layout; new seed → new run.
+- **`useMemo`** rebuilds the plan only when `count`, `seed`, or `types` change.
+- Each block is a **self-contained React component** (floor mesh + kinematic obstacle) so adding a new obstacle type is mostly copy-paste-adjust.
 
-### 9) Performance: instanced rigid bodies
+### 9) Obstacle blocks and kinematic bodies
 
-- Many duplicate objects (100 cubes) should not mean 100 separate draw-call-heavy setups without care.
-- **`InstancedRigidBodies`** + **`instancedMesh`** share one mesh while each instance has its own rigid body.
-- Pre-build an array of **`InstancedRigidBodyProps`** (`key`, `position`, `rotation`) for initial poses.
-- Use **`Perf`** (or similar) to confirm the scene stays interactive under load.
+- Obstacles use **`type="kinematicPosition"`** — the mesh moves under script but still collides with the dynamic ball.
+- **Axe / Limbo**: `setNextKinematicTranslation` driven by `Math.sin(time + offset)` for varied motion per instance.
+- **Spinner**: `setNextKinematicRotation` from a `Quaternion` built with `Euler` and a random signed speed.
+- Floors are plain **meshes** (no `RigidBody`); only the moving part needs physics when it interacts with the player.
 
-### 10) Mental model
+### 10) Bounds and the death zone
 
-- **Mesh** = what you see; **Collider** = what the engine touches; they are related but not the same.
-- **Dynamic** bodies “live” in the simulation; **fixed** bodies define the world; **kinematic** bodies follow your script but still affect others.
-- Start with debug colliders, tune sizes, then turn debug off for the final look.
+- Arena walls are **fixed** `RigidBody` meshes with auto colliders from child geometry.
+- The **pit** under the course uses a **`CuboidCollider`** without a visible mesh — the player falls through visually empty space and triggers restart via position check.
+- Collider **`args`** use half-extents; position and scale must match the level length.
+
+### 11) Shared resources and visuals
+
+- **Reuse** one `BoxGeometry` and shared `MeshStandardMaterial` instances across blocks to reduce GPU state changes.
+- **Procedural checkerboard** via `CanvasTexture` for start/end line markings without external image assets.
+- **`Float`** and **`Text`** from Drei for the title; **`useGLTF`** for the finish prop with `traverse` to enable shadows on loaded meshes.
+
+### 12) Lighting that follows the action
+
+- A **directional light** with shadow camera bounds is tied to the player camera in `useFrame` (light and target move with `camera.position.z`).
+- Shadows stay centered on the visible course instead of staying fixed in world space.
+
+### 13) HTML interface on top of WebGL
+
+- The UI lives in a **sibling** of `<Canvas>`, not inside it — standard DOM, CSS, and buttons.
+- Control indicators mirror keyboard state with CSS classes (`active` when a key is pressed).
+- The timer and restart button read the same **Zustand** store as the 3D scene — single source of truth.
+
+### 14) Mental model
+
+- **Game state** lives in the store; **presentation** lives in React (3D + DOM); **simulation** lives in Rapier.
+- **Blocks** are data-driven tiles; **Level** is the composer; **Player** is the only dynamic actor you control.
+- Tune **impulse strength**, **damping**, and **camera lerp** together — they define how the game *feels* more than any single number.
 
 ## Run the project
 
@@ -110,7 +136,7 @@ npm install
 npm run dev
 ```
 
-Click the **purple cube** to make it jump. Watch the red **twister** push objects around the arena.
+Use **WASD** or **arrow keys** to roll, **Space** to jump. Reach the **FINISH** platform before falling off the course. Press **Restart** after completing a run to try a new random layout.
 
 ## Credits
 
