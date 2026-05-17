@@ -32,6 +32,8 @@ export const Bounds = ({ length }: BoundsProps) => {
       <CuboidCollider
         args={[2, 0.1, 2 * length]}
         position={[0, -0.1, -(length * 2) + 2]}
+        restitution={0.2}
+        friction={1}
       />
     </RigidBody>
   );
