@@ -7,6 +7,8 @@ import {
 } from "@react-three/rapier";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Vector3 } from "three";
+import { useGame } from "../stores/use-game";
+import { FLOOR_SIZE } from "./blocks/shared";
 
 export const Player = () => {
   const [subscribeKeys, getKeys] = useKeyboardControls();
@@ -14,6 +16,11 @@ export const Player = () => {
   const ball = useRef<RapierRigidBody>(null);
 
   const { rapier, world } = useRapier();
+
+  const start = useGame((state) => state.start);
+  const restart = useGame((state) => state.restart);
+  const end = useGame((state) => state.end);
+  const blocksCount = useGame((state) => state.blocksCount);
 
   const [smoothedCameraPosition] = useState(() => new Vector3(10, 10, 10));
   const [smoothedCameraTarget] = useState(() => new Vector3());
@@ -35,15 +42,46 @@ export const Player = () => {
     }
   }, [rapier, world]);
 
+  const reset = useCallback(() => {
+    if (!ball.current) return;
+    ball.current.setTranslation({ x: 0, y: 1, z: 0 }, true);
+    ball.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    ball.current.setAngvel({ x: 0, y: 0, z: 0 }, true);
+  }, [ball]);
+
   useEffect(() => {
+    const unsubscribeReset = useGame.subscribe(
+      (state) => state.phase,
+      (phase) => {
+        if (phase === "ready") {
+          reset();
+        }
+      },
+    );
     const unsubscribe = subscribeKeys(
       (state) => state.jump,
       (value) => {
         if (value) jump();
       },
     );
-    return unsubscribe;
-  }, [subscribeKeys, jump]);
+
+    const unsubscribeAnyKeys = subscribeKeys(
+      (state) =>
+        state.forward ||
+        state.backward ||
+        state.left ||
+        state.right ||
+        state.jump,
+      (value) => {
+        if (value) start();
+      },
+    );
+    return () => {
+      unsubscribe();
+      unsubscribeAnyKeys();
+      unsubscribeReset();
+    };
+  }, [subscribeKeys, jump, start, reset]);
 
   useFrame((state, delta) => {
     // Controls
@@ -91,6 +129,15 @@ export const Player = () => {
 
     state.camera.position.copy(smoothedCameraPosition);
     state.camera.lookAt(smoothedCameraTarget);
+
+    // phases — align with BlockEnd at z = -(blocksCount + 1) * FLOOR_SIZE
+    const endBlockEntranceZ = -(blocksCount + 1) * FLOOR_SIZE + FLOOR_SIZE / 2;
+    if (ballPosition.z < endBlockEntranceZ) {
+      end();
+    }
+    if (ballPosition.y < -4) {
+      restart();
+    }
   });
   return (
     <RigidBody
